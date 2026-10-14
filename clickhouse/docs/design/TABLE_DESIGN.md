@@ -34,7 +34,7 @@
 
 1. 两表与 Doris 同名同列：明细表在 Doris 版基础上增加 level×10、rate_limit×3 共 13 个打平列（Doris 侧同样存在，由 Routine Load 打平）。
 2. 聚合表 40 维 + 24 指标，逐列同名同口径。
-3. UTC 墙钟：`toDateTime(timestamp, 'UTC')`，列类型 `DateTime('UTC')`，无时区歧义。
+3. UTC 墙钟：`toDateTime(intDiv(timestamp, 1000000000), 'UTC')`（timestamp 为 epoch 纳秒），列类型 `DateTime('UTC')`，无时区歧义。
 4. 7 天保留：两表均 `TTL ... + INTERVAL 7 DAY`，按天分区。
 
 ---
@@ -59,7 +59,7 @@
 | 字段 | 类型 | 说明 |
 |------|------|------|
 | `hostid` | String | 主机标识，格式 `hostname_netns` |
-| `log_time` | DateTime('UTC') | 日志产生时间（**UTC 墙钟**，由消费 MV 以 `toDateTime(timestamp, 'UTC')` 写入；**时间字段**，明细表用此字段做时间过滤） |
+| `log_time` | DateTime('UTC') | 日志产生时间（**UTC 墙钟**，由消费 MV 以 `toDateTime(intDiv(timestamp, 1000000000), 'UTC')` 写入，timestamp 为 epoch 纳秒；**时间字段**，明细表用此字段做时间过滤） |
 | `ai_apikey_id` | String | API Key ID（虚拟 Key，非原始 Key） |
 | `ai_requested_model` | String | 请求模型名（客户端请求的模型） |
 | `logid` | **UInt64** | BFE 请求唯一标识（类型偏差说明见 §2.3） |
@@ -219,7 +219,7 @@
 
 | 口径 | Doris Routine Load（COLUMNS） | ClickHouse 消费 MV（`bfe_ai_log_load_mv`） |
 |------|------------------------------|--------------------------------------------|
-| UTC 墙钟 | `DATE_SUB(FROM_UNIXTIME(timestamp), INTERVAL TIMESTAMPDIFF(SECOND, UTC_TIMESTAMP(), NOW()) SECOND)` | `toDateTime(timestamp, 'UTC')`（列固定 UTC，无时区歧义） |
+| UTC 墙钟 | `DATE_SUB(FROM_UNIXTIME(timestamp/1000000000), INTERVAL TIMESTAMPDIFF(SECOND, UTC_TIMESTAMP(), NOW()) SECOND)` | `toDateTime(intDiv(timestamp, 1000000000), 'UTC')`（列固定 UTC，无时区歧义；timestamp 为 epoch 纳秒） |
 | level 打平（×10） | `json_unquote(json_extract(ai_apikeytags, '$.level1.tagname'))` | `JSONExtractString(ai_apikeytags, 'level1', 'tagname')`（空对象/缺失路径返回 `''`，Doris 侧为 NULL，谓词行为一致） |
 | 限流打平（×3） | `json_unquote(json_extract(ai_rate_limit_hits, '$[0].rate_limit_policy_id'))` 等 | `if(length(ai_rate_limit_hits) >= 1, ai_rate_limit_hits[1].rate_limit_policy_id, '')` 等（Tuple 具名字段访问 + length 守卫，空数组返回 `''`） |
 | 源字段不落表 | `ai_apikeytags` 仅参与表达式求值 | 同：MV SELECT 不投影 `ai_apikeytags` / `timestamp` |

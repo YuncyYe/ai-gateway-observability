@@ -15,7 +15,7 @@
 CREATE TABLE IF NOT EXISTS ${CLICKHOUSE_DATABASE}.bfe_ai_log_kafka
 (
     `logid`                   UInt64,
-    `timestamp`               Int64 COMMENT 'epoch 秒，MV 内换算为 UTC 墙钟 log_time',
+    `timestamp`               Int64 COMMENT 'epoch 纳秒（timestamp/1e9 即秒），MV 内换算为 UTC 墙钟 log_time',
     `product`                 String,
     `log_tag`                 String,
     `hostid`                  String,

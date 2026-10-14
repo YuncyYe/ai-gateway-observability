@@ -65,7 +65,7 @@ Doris 的 STRUCT 字段声明为冒号风格 `STRUCT<k: VARCHAR(10)>`，StarRock
 
 ### 4.3 Routine Load：同构平移 + 真实消费链路验证出的三项修正
 
-与 doris/sqls/bfe_ai_log_load_routine.sql 逐列对照，UTC 墙钟算术式（`DATE_SUB(FROM_UNIXTIME(timestamp), INTERVAL TIMESTAMPDIFF(SECOND, UTC_TIMESTAMP(), NOW()) SECOND)`）与 `max_error_number=1000` 原样平移（已在 FE 会话时区 Asia/Shanghai 下实测得 UTC 墙钟）。但 **starrocks-it TC02 的真实消费链路证明：CREATE ROUTINE LOAD 只校验语法，列表达式在 BE 任务创建/运行时才分析**——初版"同构平移"在冒烟阶段未被发现的三个兼容性问题，全部由真实消费暴露并修正：
+与 doris/sqls/bfe_ai_log_load_routine.sql 逐列对照，UTC 墙钟算术式（`DATE_SUB(FROM_UNIXTIME(timestamp/1000000000), INTERVAL TIMESTAMPDIFF(SECOND, UTC_TIMESTAMP(), NOW()) SECOND)`）与 `max_error_number=1000` 原样平移（已在 FE 会话时区 Asia/Shanghai 下实测得 UTC 墙钟）。但 **starrocks-it TC02 的真实消费链路证明：CREATE ROUTINE LOAD 只校验语法，列表达式在 BE 任务创建/运行时才分析**——初版"同构平移"在冒烟阶段未被发现的三个兼容性问题，全部由真实消费暴露并修正：
 
 1. **`json_extract(varchar, varchar)` 不存在**：SR 3.5 的 `json_extract` 无该签名（任务创建报 "No matching function"）。level 十列打平改写为 **`get_json_string(ai_apikeytags, '$.levelN.x')`**——直接返回去引号字符串，无需再 `json_unquote`；
 2. **COLUMNS 表达式上下文中复杂列以 VARCHAR（JSON 文本）承载**：`ai_rate_limit_hits[1].xxx` 子脚本写法报 "cannot subscript VARCHAR"。限流三列打平改写为 **`get_json_string(ai_rate_limit_hits, '$[0].xxx')`**（JSON 路径取首个命中）；
@@ -114,7 +114,7 @@ starrocks-it（`tests/integration/`，2026-10-02 落地）在真实环境完成�
 | 用例 | 结果 | 覆盖点 |
 |------|------|--------|
 | TC01 全新安装 schema | ✅ | 四份 SQL 按序建 3 对象；明细表 102 列 / MV 65 列（ts_day+40 维+24 指标）；关键列类型固化（**BOOLEAN 在 information_schema 以 tinyint 呈现**）；重复应用行为固化（建库幂等；表/MV 报 already exists、RL 报 "Name ... already used in db"） |
-| TC02 消费打平（真实 Kafka） | ✅ | demo 三样例（timestamp 重写当前时刻、logid 重写到 Int64 域、单行压缩）经 Routine Load COLUMNS 映射落库：level 十列、限流三列、log_time UTC 墙钟（与 FE 会话时区无关）、NULL 语义；RL PAUSED 自愈；明细恰好 3 行。**本用例同时抓出并验证了 §4.3 的三项 RL 方言修正**（初版 json_extract 平移在任务创建/运行时连续报错） |
+| TC02 消费打平（真实 Kafka） | ✅ | demo 三样例（timestamp 重写当前时刻/纳秒、logid 重写到 Int64 域、单行压缩）经 Routine Load COLUMNS 映射落库：level 十列、限流三列、log_time UTC 墙钟（与 FE 会话时区无关）、NULL 语义；RL PAUSED 自愈；明细恰好 3 行。**本用例同时抓出并验证了 §4.3 的三项 RL 方言修正**（初版 json_extract 平移在任务创建/运行时连续报错） |
 | TC03 明细到聚合口径 | ✅ | 直插三行（ai_rate_limit_hits 写 JSON 文本字面量——SR 侧该列为 VARCHAR）→ 异步 MV 周期刷新：24 指标关键子集（request=3、error=2、auth_reject=1、input/output/total=95/173/207、rate_limit_hits=1）+ 40 维关键子集；**跨刷新周期（70s）重查不重复累计** |
 | TC04 存量升级 ALTER | ✅ | ADD COLUMN 成功（Schema Change 异步生效，轮询至可见）；**负向断言：SR 3.5.21 不支持 ADD COLUMN IF NOT EXISTS**（1064 "No viable statement for input 'ADD COLUMN IF'"）；MV 不自动携带新列；ALTER 后 MV 刷新不受影响 |
 | TC05 聚合 MV 重建 | ✅ | DROP MV → 仓库 DDL 重建 → **异步 MV 创建即自动全量回填**（无需 CH 侧手工 INSERT..SELECT 重算）→ 口径与重建前逐项一致 |

@@ -83,7 +83,7 @@
     "session_offset_time": 15,
     "sock_src_ip": "172.27.152.27",
     "sub_cluster": "ai.pool.bj",
-    "timestamp": 1787538980,
+    "timestamp": 1787538980000000000,
     "transfer_encoding": "",
     "uid": "",
     "user_agent": "curl/8.0.1",

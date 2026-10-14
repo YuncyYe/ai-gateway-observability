@@ -74,7 +74,7 @@ ai_auth_*_quota_plans  Array(String)
 
 | 口径 | Doris Routine Load | ClickHouse 消费 MV |
 |------|--------------------|--------------------|
-| UTC 墙钟 | `DATE_SUB(FROM_UNIXTIME(timestamp), INTERVAL TIMESTAMPDIFF(SECOND, UTC_TIMESTAMP(), NOW()) SECOND)` | `toDateTime(timestamp, 'UTC')`（列固定 UTC，无时区歧义） |
+| UTC 墙钟 | `DATE_SUB(FROM_UNIXTIME(timestamp/1000000000), INTERVAL TIMESTAMPDIFF(SECOND, UTC_TIMESTAMP(), NOW()) SECOND)` | `toDateTime(intDiv(timestamp, 1000000000), 'UTC')`（列固定 UTC，无时区歧义；timestamp 为 epoch 纳秒） |
 | level 打平（×10） | `json_unquote(json_extract(ai_apikeytags, '$.level1.tagname'))` | `JSONExtractString(ai_apikeytags, 'level1', 'tagname')` |
 | 限流打平（×3） | `json_unquote(json_extract(ai_rate_limit_hits, '$[0].rate_limit_policy_id'))` 等 | `if(length(ai_rate_limit_hits) >= 1, ai_rate_limit_hits[1].rate_limit_policy_id, '')` 等（Tuple 具名字段访问） |
 | 源字段不落表 | `ai_apikeytags` 仅参与表达式求值 | 同（MV SELECT 不投影该列） |

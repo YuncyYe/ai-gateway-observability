@@ -65,7 +65,7 @@ go test ./implementation/scenario-CLICKHOUSE01-clickhouse-dock/ -run TestTC01 -v
 TC02 行为要点（详见 [TC-02 文档](./测试设计文档/scenario-CLICKHOUSE01-clickhouse对接/TC-02-消费打平.md)）：
 
 - 实测 ClickHouse Kafka 引擎新消费组为 **earliest** 起点，生产后轮询明细表直至三条样例落库即可（deadline 240s，本机 9p 盘上消费组分配可达 1-2 分钟）；
-- demo 样例为多条消息层改写后生产：`timestamp` 重写为当前时刻（demo 时间戳 2026-08-24 早于 TTL 7 天，不重写会被静默丢弃）、多行 JSON 压缩为单行（`JSONEachRow` 要求）；
+- demo 样例为多条消息层改写后生产：`timestamp` 重写为当前时刻（纳秒；demo 时间戳 2026-08-24 早于 TTL 7 天，不重写会被静默丢弃）、多行 JSON 压缩为单行（`JSONEachRow` 要求）；
 - 测试 topic **只建不删**：本机 Kafka 数据目录在 /mnt/d（WSL 9p），删除 topic 会使 broker log dir failed 宕机；topic 命名唯一、仅 3 条消息；
 - Kafka 客户端为 `segmentio/kafka-go v0.4.51`（v0.4.47 及更早版本的 CreateTopics API 与 Kafka 4.x 不兼容，连接会被 broker 直接断开）。
 
@@ -74,7 +74,7 @@ TC02 行为要点（详见 [TC-02 文档](./测试设计文档/scenario-CLICKHOU
 | 项 | doris-it | clickhouse-it |
 |----|----------|---------------|
 | 驱动 | `go-sql-driver/mysql`（DSN `multiStatements=true` + `USE <db>` 前缀） | `clickhouse-go/v2` stdlib 模式（`clickhouse://user:pass@host:9000/dbname?dial_timeout=10s`，六份 SQL 均为单语句且全限定库名，无需 multiStatements/USE） |
-| Kafka 消息生产 | 不生产（TC02 仅校验 Routine Load 任务创建被接受） | `segmentio/kafka-go` 真实生产三份 demo 样例到独立临时 topic（打平发生在 MV 消费路径，必须走真实消费链路；消息体做 timestamp 重写 + 单行压缩，不改 demo 文件） |
+| Kafka 消息生产 | 不生产（TC02 仅校验 Routine Load 任务创建被接受） | `segmentio/kafka-go` 真实生产三份 demo 样例到独立临时 topic（打平发生在 MV 消费路径，必须走真实消费链路；消息体做 timestamp 重写（纳秒）+ 单行压缩，不改 demo 文件） |
 | Skip 逻辑 | Doris 不可达全部 Skip；无 Kafka 依赖 | ClickHouse 不可达全部 Skip；Kafka 不可达仅 TC02 额外 Skip |
 | 聚合触发 | 手动执行 JOB 的 INSERT..SELECT（固定字面量窗口） | 聚合 MV 随明细插入同步触发（tiny sleep 保险） |
 

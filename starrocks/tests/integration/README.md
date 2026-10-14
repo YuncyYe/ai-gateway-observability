@@ -68,7 +68,7 @@ go test ./implementation/scenario-STARROCKS01-starrocks-dock/ -run TestTC01 -v
 
 TC02 行为要点（详见 [TC-02 文档](./测试设计文档/scenario-STARROCKS01-starrocks对接/TC-02-消费打平.md)）：
 
-- demo 样例为消息层改写后生产：`timestamp` 重写为当前时刻（demo 时间戳 2026-08-24 早于动态分区 `start=-7` 的既有分区，不重写会成为无分区错误行）、`logid` 重写到 Int64 域（SR 对超界 BIGINT 直接拒绝——INSERT 报错 / Routine Load 计错误行跳过，与 Doris 静默截断、CH UInt64 原值均为差异点）、多行 JSON 压缩为单行（等价真实 log-reader 产出）；
+- demo 样例为消息层改写后生产：`timestamp` 重写为当前时刻（纳秒；demo 时间戳 2026-08-24 早于动态分区 `start=-7` 的既有分区，不重写会成为无分区错误行）、`logid` 重写到 Int64 域（SR 对超界 BIGINT 直接拒绝——INSERT 报错 / Routine Load 计错误行跳过，与 Doris 静默截断、CH UInt64 原值均为差异点）、多行 JSON 压缩为单行（等价真实 log-reader 产出）；
 - Routine Load 创建后若因 Kafka 元数据获取失败进入 PAUSED，测试轮询期间自动 RESUME 自愈；
 - 测试 topic **只建不删**：本机 Kafka 数据目录在 /mnt/d（WSL 9p），删除 topic 会使 broker log dir failed 宕机；topic 命名唯一、仅 3 条消息。
 

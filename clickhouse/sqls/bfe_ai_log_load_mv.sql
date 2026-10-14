@@ -3,8 +3,8 @@
 -- 设计依据：clickhouse/docs/modifications/2026-10-01-clickhouse-dock/design-changes.md
 -- ============================================================
 -- 本 MV 等价 Doris Routine Load 的 COLUMNS 映射：
---   * UTC 墙钟：toDateTime(timestamp, 'UTC') 对应 Doris 的
---     DATE_SUB(FROM_UNIXTIME(timestamp), INTERVAL TIMESTAMPDIFF(SECOND, UTC_TIMESTAMP(), NOW()) SECOND)；
+--   * UTC 墙钟：toDateTime(intDiv(timestamp, 1000000000), 'UTC') 对应 Doris 的
+--     DATE_SUB(FROM_UNIXTIME(timestamp/1000000000), INTERVAL TIMESTAMPDIFF(SECOND, UTC_TIMESTAMP(), NOW()) SECOND)；
 --   * apikeytags 打平：JSONExtractString(ai_apikeytags, 'levelN', 'tagname/tagvalue')
 --     对应 json_unquote(json_extract(ai_apikeytags, '$.levelN.tagname/tagvalue'))；
 --     空对象/缺失路径返回 ''（Doris 侧为 NULL，明细查询谓词 `!= ''` 行为一致）；
@@ -17,7 +17,7 @@ CREATE MATERIALIZED VIEW IF NOT EXISTS ${CLICKHOUSE_DATABASE}.bfe_ai_log_load_mv
 TO ${CLICKHOUSE_DATABASE}.bfe_ai_request_log AS
 SELECT
     hostid,
-    toDateTime(`timestamp`, 'UTC') AS log_time,
+    toDateTime(intDiv(`timestamp`, 1000000000), 'UTC') AS log_time,
     ai_apikey_id,
     ai_requested_model,
     logid,

@@ -200,7 +200,7 @@ WHERE logid = 10602749765076101032   -- demo/normal_request.json 中的 logid
 LIMIT 1;
 ```
 
-`log_time` 应为样例 `timestamp`（epoch 秒）按 UTC 换算的墙钟，例如 `toDateTime(1787538975, 'UTC')` 的结果。
+`log_time` 应为样例 `timestamp`（epoch 纳秒）按 UTC 换算的墙钟，例如 `toDateTime(intDiv(1787538975000000000, 1000000000), 'UTC')` 的结果。
 
 三个样例全部发送后，可验证聚合链路与口径（限流、认证拒绝各 +1）：
 

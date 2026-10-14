@@ -72,7 +72,7 @@
 |----|----------|--------------|
 | level 打平列表达式 | `json_unquote(json_extract(ai_apikeytags, '$.level1.tagname'))` | `get_json_string(ai_apikeytags, '$.level1.tagname')`——**SR 3.5 无 `json_extract(varchar, varchar)` 签名**（任务运行时报 no matching function）；get_json_string 直接返回去引号字符串 |
 | 限流打平列表达式 | `json_unquote(json_extract(ai_rate_limit_hits, '$[0].rate_limit_policy_id'))` 等 | `get_json_string(ai_rate_limit_hits, '$[0].rate_limit_policy_id')` 等——COLUMNS 表达式上下文中复杂列以 VARCHAR（JSON 文本）承载，按 JSON 路径取首个命中（数组下标形式会报 cannot subscript VARCHAR） |
-| UTC 墙钟 | `DATE_SUB(FROM_UNIXTIME(timestamp), INTERVAL TIMESTAMPDIFF(SECOND, UTC_TIMESTAMP(), NOW()) SECOND)` | 原样平移（已实测：FE 会话时区 Asia/Shanghai 下结果即 UTC 墙钟） |
+| UTC 墙钟 | `DATE_SUB(FROM_UNIXTIME(timestamp/1000000000), INTERVAL TIMESTAMPDIFF(SECOND, UTC_TIMESTAMP(), NOW()) SECOND)` | 原样平移（已实测：FE 会话时区 Asia/Shanghai 下结果即 UTC 墙钟；timestamp 为 epoch 纳秒） |
 | 消费组 | `doris_bfe_ai_log` | `starrocks_bfe_ai_log`（**必须不同**，位点互不影响） |
 | 起始偏移 | `OFFSET_BEGINNING` | 同（历史消息全部加载） |
 | 错误容忍 | `max_error_number=1000` | 同（SR Routine Load 同名参数） |

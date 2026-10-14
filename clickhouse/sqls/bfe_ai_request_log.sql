@@ -3,7 +3,8 @@
 -- 设计依据：clickhouse/docs/modifications/2026-10-01-clickhouse-dock/design-changes.md
 -- ============================================================
 -- 口径要点（与 doris/sqls/bfe_ai_request_log.sql 对齐）：
---   * log_time 存 UTC 墙钟，由消费 MV 以 toDateTime(timestamp, 'UTC') 换算；
+--   * log_time 存 UTC 墙钟，由消费 MV 以 toDateTime(intDiv(timestamp, 1000000000), 'UTC') 换算
+--     （timestamp 为 epoch 纳秒）；
 --   * 字符串列 DEFAULT '' / 数值列 DEFAULT 0，对齐 Doris 聚合 JOB 的 COALESCE 归一口径，
 --     保证 `col != ''` 等既有谓词行为一致；
 --   * Nullable 仅限 Doris 语义允许 NULL 的列（err_msg、ai_intent_confidence、

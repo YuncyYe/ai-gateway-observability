@@ -154,16 +154,16 @@ func TestTC02KafkaConsumptionFlatten(t *testing.T) {
 
 	// 生产三份 demo 样例（值即断言期望来源，兼校验 demo 文件与 DDL 一致性）。
 	// 两处消息层改写（不改 demo 文件）：
-	//  1. timestamp 重写为当前时刻——demo 时间戳 2026-08-24 早于动态分区 start=-7
-	//     的既有分区范围，消费落库会因无对应分区成为错误行；
+	//  1. timestamp 重写为当前时刻（纳秒，与 pb3 新单位一致）——demo 时间戳 2026-08-24
+	//     早于动态分区 start=-7 的既有分区范围，消费落库会因无对应分区成为错误行；
 	//  2. logid 重写到 Int64 域（见 demoCases 注释）——SR 对超界 BIGINT 直接拒绝。
 	base := time.Now()
 	demoTs := map[string]int64{}
 	payloads := make([][]byte, 0, len(demoCases))
 	for i, c := range demoCases {
-		ts := base.Add(time.Duration(i-2) * 10 * time.Second).Unix()
-		demoTs[c.logid] = ts
-		payloads = append(payloads, demoPayload(t, c.file, c.logid, ts))
+		tsNano := base.Add(time.Duration(i-2) * 10 * time.Second).UnixNano()
+		demoTs[c.logid] = tsNano
+		payloads = append(payloads, demoPayload(t, c.file, c.logid, tsNano))
 	}
 	common.ProduceMessages(t, brokers, topic, payloads...)
 
@@ -214,7 +214,8 @@ func TestTC02KafkaConsumptionFlatten(t *testing.T) {
 
 	// 逐 logid 断言：level 打平十列、限流打平三列、log_time UTC 墙钟、NULL 语义
 	for logid, exp := range want {
-		ts := demoTs[logid]
+		// 注入的是纳秒，log_time 落库为秒级 UTC 墙钟，断言按秒比对
+		tsSec := demoTs[logid] / int64(time.Second)
 		row := common.RowStrings(t, db, fmt.Sprintf(`SELECT
     level1Name, level1, level2Name, level2, level3Name, level3, level4Name, level4, level5Name, level5,
     rate_limit_policy_id, rate_limit_type, rate_limit_rule_name,
@@ -222,9 +223,9 @@ func TestTC02KafkaConsumptionFlatten(t *testing.T) {
     IF(ai_intent_confidence IS NULL, '1', '0'), IFNULL(CAST(ai_intent_confidence AS CHAR), '')
 FROM %s.bfe_ai_request_log WHERE logid = %s`, dbName, logid))
 
-		wantUTC := time.Unix(ts, 0).UTC().Format("2006-01-02 15:04:05")
+		wantUTC := time.Unix(tsSec, 0).UTC().Format("2006-01-02 15:04:05")
 		wantRow := append(append(append([]string{}, exp.levels[:]...), exp.rateLimit[:]...),
-			logid, fmt.Sprintf("%d", ts), wantUTC, exp.confIsNull, exp.conf)
+			logid, fmt.Sprintf("%d", tsSec), wantUTC, exp.confIsNull, exp.conf)
 		if strings.Join(row, "|") != strings.Join(wantRow, "|") {
 			t.Errorf("logid=%s 明细行不匹配:\n  got: %q\n want: %q", logid, row, wantRow)
 		}
@@ -245,7 +246,7 @@ func demoLogid(t *testing.T, name string) string {
 	return fmt.Sprintf("%v", loadDemo(t, name)["logid"])
 }
 
-// demoPayload 读取 demo 样例、将 logid 重写到 Int64 域取值 logid、timestamp 改写为 ts
+// demoPayload 读取 demo 样例、将 logid 重写到 Int64 域取值 logid、timestamp 改写为 ts（纳秒）
 //（其余字段原样保留，含数字字面量），压缩为单行 JSON 消息体返回。
 func demoPayload(t *testing.T, name string, logid string, ts int64) []byte {
 	t.Helper()

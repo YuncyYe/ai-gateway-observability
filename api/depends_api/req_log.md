@@ -33,7 +33,7 @@ bfe_access_pb/bfe_access.proto  →  log-reader/reader_modules/mod_kafka/field_r
 | JSON 字段 | JSON 类型 | 输出 | PB 字段路径 | PB 类型 | 编号 | 含义 |
 |-----------|-----------|------|-------------|---------|------|------|
 | `logid` | uint64 | 必选 | `BfeLog.logid` | required uint64 | 3 | 请求唯一日志 ID（若请求头含 `BFE_LOGID` 则复用） |
-| `timestamp` | uint64 | 必选 | `BfeLog.timestamp` | required uint64 | 2 | 请求/会话结束时的 Unix 秒级时间戳 |
+| `timestamp` | uint64 | 必选 | `BfeLog.timestamp` | required uint64 | 2 | 请求/会话结束时的 Unix 纳秒时间戳（`timestamp/1e9` 即秒） |
 | `product` | string | 必选 | `BfeLog.request_log.product`，空则回退 `BfeLog.product` | optional string / ProductID 枚举 | 101 / 1 | 产品标识 |
 | `hostid` | string | 必选 | （无 PB 对应） | — | — | 主机标识 `hostname_netns`，来自 `reader_util.GetHostId()` |
 | `log_tag` | string | 可选 | `BfeLog.log_tag` | optional string | 26 | 日志标签：`req_<product>`（正常）/ `req_err_<product>`（错误） |

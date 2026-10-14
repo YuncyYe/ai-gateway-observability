@@ -3,10 +3,11 @@ USE ${DORIS_DATABASE};
 CREATE ROUTINE LOAD bfe_ai_log_load ON bfe_ai_request_log
 COLUMNS(
     logid,
+    -- timestamp 单位是纳秒
     timestamp,
     -- 存储 UTC 墙钟（与 MySQL 链路 log-reader 写入口径一致）：FROM_UNIXTIME 按会话时区
     -- 解释 epoch，此处减去会话相对 UTC 的偏移，保证任何 FE 时区下结果一致。
-    log_time         = DATE_SUB(FROM_UNIXTIME(timestamp), INTERVAL TIMESTAMPDIFF(SECOND, UTC_TIMESTAMP(), NOW()) SECOND),
+    log_time         = DATE_SUB(FROM_UNIXTIME(timestamp/1000000000), INTERVAL TIMESTAMPDIFF(SECOND, UTC_TIMESTAMP(), NOW()) SECOND),
     product,
     log_tag,
     hostid,
